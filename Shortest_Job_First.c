@@ -134,24 +134,24 @@ int main() {
     
     // Trien khai SJF khong chiem huu
     PCB executed[n]; // Mang luu tien trinh da thuc thi
-    int executedCount = 0;
+    int executedCount = 0; // So luong tien trinh da thuc thi
     int currentTime = P[0].iArrival; // Thoi gian bat dau
-    int completed = 0;
+    int completed = 0; // So luong tien trinh da hoan thanh
     
     while(completed < n) {
-        int minBurst = 9999;
-        int minIndex = -1;
+        int minBurst = 9999; 
+        int minIndex = -1; //
         
         // Tim tien trinh co thoi gian xu ly ngan nhat
         for(int i = 0; i < n; i++) {
-            int isExecuted = 0;
-            for(int j = 0; j < executedCount; j++) {
+            int isExecuted = 0; 
+            for(int j = 0; j < executedCount; j++) { 
                 if(P[i].iPID == executed[j].iPID) {
                     isExecuted = 1;
                     break;
                 }
             }
-            if(!isExecuted && P[i].iArrival <= currentTime && P[i].iBurst < minBurst) {
+            if(!isExecuted && P[i].iArrival <= currentTime && P[i].iBurst < minBurst) { // Kiem tra thoi gian den va thoi gian xu ly
                 minBurst = P[i].iBurst;
                 minIndex = i;
             }
