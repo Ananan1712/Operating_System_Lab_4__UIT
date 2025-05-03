@@ -202,13 +202,8 @@ int main() {
         }
     }
 
-    // Sao chep executed vao P de in bieu do Gantt
-    for(int i = 0; i < executedCount; i++) {
-        P[i] = executed[i];
-    }
-
     printf("________[Round Robin Scheduling:]________\n"); // Tieu de RR
-    exportGanttChart(executedCount, P); // In bieu do Gantt
+    exportGanttChart(executedCount, executed); // In bieu do Gantt
     calculateAWT(n, P); // Tinh thoi gian cho trung binh
     calculateATaT(n, P); // Tinh thoi gian quay vong trung binh
     
