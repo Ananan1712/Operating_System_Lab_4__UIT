@@ -1,70 +1,104 @@
-#include <stdio.h> 
-#include <stdlib.h> 
+#include <stdio.h>
+#include <stdlib.h>
 #include <time.h>
 
-// Dinh nghia cau truc PCB cho tien trinh
+#define MAX_SIZE 100
+
 typedef struct {
-    int iPID;           // ID cua tien trinh
-    int iArrival, iBurst; // Thoi gian den va thoi gian xu ly
-    int iStart, iFinish;  // Thoi gian bat dau va ket thuc
-    int iWaiting, iResponse, iTaT; // Thoi gian cho, phan hoi va quay vong
+    int iPID;
+    int iArrival, iBurst;
+    int iStart, iFinish;
+    int iWaiting, iResponse, iTaT;
 } PCB;
 
-// Khoi tao ngau nhien cac tien trinh
+// Cấu trúc hàng đợi vòng
+typedef struct {
+    PCB items[MAX_SIZE];
+    int front;
+    int rear;
+    int count;
+} Queue;
+
+void initQueue(Queue *q) {
+    q->front = 0;
+    q->rear = -1;
+    q->count = 0;
+}
+
+int isEmpty(Queue *q) {
+    return q->count == 0;
+}
+
+int isFull(Queue *q) {
+    return q->count == MAX_SIZE;
+}
+
+void enqueue(Queue *q, PCB p) {
+    if (isFull(q)) {
+        printf("Queue is full!\n");
+        return;
+    }
+    q->rear = (q->rear + 1) % MAX_SIZE;
+    q->items[q->rear] = p;
+    q->count++;
+}
+
+PCB dequeue(Queue *q) {
+    if (isEmpty(q)) {
+        printf("Queue is empty!\n");
+        PCB empty = {0};
+        return empty;
+    }
+    PCB p = q->items[q->front];
+    q->front = (q->front + 1) % MAX_SIZE;
+    q->count--;
+    return p;
+}
+
+// Khởi tạo ngẫu nhiên các tiến trình
 void inputProcess(int n, PCB P[]) {
     srand(time(NULL));
-    for(int i = 0; i < n; i++) {
-        P[i].iPID = i + 1;              // Gan ID tien trinh
-        P[i].iArrival = rand() % 21;    // Thoi gian den ngau nhien (0-20)
-        P[i].iBurst = (rand() % 11) + 2; // Thoi gian xu ly ngau nhien (2-12)
-        P[i].iStart = 0;                // Khoi tao thoi gian bat dau
-        P[i].iFinish = 0;               // Khoi tao thoi gian ket thuc
-        P[i].iWaiting = 0;              // Khoi tao thoi gian cho
-        P[i].iResponse = 0;             // Khoi tao thoi gian phan hoi
-        P[i].iTaT = 0;                  // Khoi tao thoi gian quay vong
+    for (int i = 0; i < n; i++) {
+        P[i].iPID = i + 1;
+        P[i].iArrival = rand() % 21;    // Thời gian đến ngẫu nhiên (0-20)
+        P[i].iBurst = (rand() % 11) + 2; // Thời gian xử lý ngẫu nhiên (2-12)
+        P[i].iStart = -1;
+        P[i].iFinish = 0;
+        P[i].iWaiting = 0;
+        P[i].iResponse = -1;
+        P[i].iTaT = 0;
     }
 }
 
-// In thong tin cac tien trinh
+// In thông tin các tiến trình
 void printProcess(int n, PCB P[]) {
     printf("____________[Process:]____________\n");
     printf("PID\tArrival Time\tBurst Time\n");
-    for(int i = 0; i < n; i++) {
+    for (int i = 0; i < n; i++) {
         printf("P%d\t    %d\t\t    %d\n", P[i].iPID, P[i].iArrival, P[i].iBurst);
     }
     printf("__________________________________\n");
 }
 
-// In bieu do Gantt
-void exportGanttChart(int n, PCB P[]) {
+// In biểu đồ Gantt
+void exportGanttChart(int executedCount, PCB executed[]) {
     printf("\nGantt Chart:\n");
-    printf("0");
-    for(int i = 0; i < n; i++) {
-        printf("\t%d", P[i].iFinish); // In thoi diem ket thuc
+    int currentTime = 0;
+    printf("%d", currentTime);
+    for (int i = 0; i < executedCount; i++) {
+        if (executed[i].iFinish > currentTime) {
+            printf("\t%d", executed[i].iFinish);
+            currentTime = executed[i].iFinish;
+        }
     }
     printf("\n|");
-    for(int i = 0; i < n; i++) {
-        printf("   P%d\t|", P[i].iPID); // In ten tien trinh
+    for (int i = 0; i < executedCount; i++) {
+        printf("   P%d\t|", executed[i].iPID);
     }
     printf("\n\n");
 }
 
-// Them tien trinh vao mang
-void pushProcess(int *n, PCB P[], PCB Q) {
-    P[*n] = Q; // Them tien trinh Q vao mang
-    (*n)++;    // Tang so luong tien trinh
-}
-
-// Xoa tien trinh tai vi tri index
-void removeProcess(int *n, int index, PCB P[]) {
-    if(index < 0 || index >= *n) return; // Kiem tra index hop le
-    for(int i = index; i < *n-1; i++) {
-        P[i] = P[i+1]; // Dich chuyen cac tien trinh
-    }
-    (*n)--; // Giam so luong tien trinh
-}
-
-// Hoan doi hai tien trinh
+// Hoán đổi hai tiến trình
 int swapProcess(PCB *P, PCB *Q) {
     PCB temp = *P;
     *P = *Q;
@@ -72,140 +106,137 @@ int swapProcess(PCB *P, PCB *Q) {
     return 1;
 }
 
-// Phan vung cho quickSort
+// Phân vùng cho quickSort
 int partition(PCB P[], int low, int high, int iCriteria) {
-    PCB pivot = P[high]; // Chon pivot la phan tu cuoi
+    PCB pivot = P[high];
     int i = low - 1;
-    for(int j = low; j < high; j++) {
+    for (int j = low; j < high; j++) {
         int compare;
-        if(iCriteria == 1) // Sap xep theo thoi gian den
+        if (iCriteria == 1) // Sắp xếp theo thời gian đến
             compare = P[j].iArrival <= pivot.iArrival;
-        else // Sap xep theo thoi gian xu ly
+        else // Sắp xếp theo thời gian xử lý
             compare = P[j].iBurst <= pivot.iBurst;
-        if(compare) {
+        if (compare) {
             i++;
-            swapProcess(&P[i], &P[j]); // Hoan doi neu thoa man
+            swapProcess(&P[i], &P[j]);
         }
     }
-    swapProcess(&P[i+1], &P[high]); // Dat pivot vao vi tri dung
-    return i+1;
+    swapProcess(&P[i + 1], &P[high]);
+    return i + 1;
 }
 
-// Sap xep quickSort
+// Sắp xếp quickSort
 void quickSort(PCB P[], int low, int high, int iCriteria) {
-    if(low < high) {
-        int pi = partition(P, low, high, iCriteria); // Phan vung
-        quickSort(P, low, pi-1, iCriteria); // Sap xep ben trai
-        quickSort(P, pi+1, high, iCriteria); // Sap xep ben phai
+    if (low < high) {
+        int pi = partition(P, low, high, iCriteria);
+        quickSort(P, low, pi - 1, iCriteria);
+        quickSort(P, pi + 1, high, iCriteria);
     }
 }
 
-// Tinh thoi gian cho trung binh
-void calculateAWT(int n, PCB P[]) {
+// Tính thời gian chờ trung bình
+void calculateAWT(int n, PCB P[], int currentTime) {
     float totalWaiting = 0;
-    for(int i = 0; i < n; i++) {
-        P[i].iWaiting = P[i].iStart - P[i].iArrival; // Tinh thoi gian cho
+    for (int i = 0; i < n; i++) {
+        P[i].iWaiting = P[i].iFinish - P[i].iBurst - P[i].iArrival;
+        if (P[i].iWaiting < 0) P[i].iWaiting = 0;
         totalWaiting += P[i].iWaiting;
     }
-    printf("Average Waiting Time: %.2f\n", totalWaiting/n);
+    printf("Average Waiting Time: %.2f\n", totalWaiting / n);
 }
 
-// Tinh thoi gian quay vong trung binh
+// Tính thời gian quay vòng trung bình
 void calculateATaT(int n, PCB P[]) {
     float totalTaT = 0;
-    for(int i = 0; i < n; i++) {
-        P[i].iTaT = P[i].iFinish - P[i].iArrival; // Tinh thoi gian quay vong
+    for (int i = 0; i < n; i++) {
+        P[i].iTaT = P[i].iFinish - P[i].iArrival;
         totalTaT += P[i].iTaT;
     }
-    printf("Average Turnaround Time: %.2f\n", totalTaT/n);
+    printf("Average Turnaround Time: %.2f\n", totalTaT / n);
 }
 
-// Ham chinh
+// Hàm chính
 int main() {
     int n, quantum;
     printf("Please input number of Process: ");
-    scanf("%d", &n); // Nhap so luong tien trinh
+    scanf("%d", &n);
     printf("Please input time quantum: ");
-    scanf("%d", &quantum); // Nhap quantum thoi gian
+    scanf("%d", &quantum);
 
-    PCB P[n + 2];
-    inputProcess(n, P); // Tao ngau nhien cac tien trinh
-    printProcess(n, P); // In thong tin tien trinh
-    
-    quickSort(P, 0, n-1, 1); // Sap xep theo thoi gian den
-    
-    // Trien khai Round Robin
-    int remainingBurst[n]; // Mang luu thoi gian xu ly con lai
-    for(int i = 0; i < n; i++) {
-        remainingBurst[i] = P[i].iBurst; // Khoi tao thoi gian con lai
-        P[i].iStart = -1; // Khoi tao iStart de theo doi thoi gian bat dau
+    PCB P[n];
+    inputProcess(n, P);
+    printProcess(n, P);
+
+    quickSort(P, 0, n - 1, 1); // Sắp xếp theo thời gian đến
+
+    // Triển khai Round Robin
+    int remainingBurst[n];
+    for (int i = 0; i < n; i++) {
+        remainingBurst[i] = P[i].iBurst;
     }
 
-    PCB queue[n * 10]; // Hang doi tien trinh
-    int queueCount = 0; // So luong tien trinh trong hang doi
-    PCB executed[n * 10]; // Mang luu thu tu thuc thi
-    int executedCount = 0; // So luong doan thuc thi
-    int currentTime = P[0].iArrival; // Thoi gian bat dau
-    int completed = 0; // So tien trinh hoan thanh
-    int i = 0; // Chi so tien trinh dang xet
+    Queue q;
+    initQueue(&q);
+    PCB executed[n * 10];
+    int executedCount = 0;
+    int currentTime = 0;
+    int completed = 0;
+    int i = 0;
+    PCB current;
+    int index = -1;
 
-    while(completed < n) {
-        // Them tien trinh da den vao hang doi
-        while(i < n && P[i].iArrival <= currentTime) {
-            queue[queueCount] = P[i];
-            queueCount++;
+    while (completed < n) {
+        // Thêm tất cả tiến trình đã đến vào hàng đợi
+        while (i < n && P[i].iArrival <= currentTime) {
+            enqueue(&q, P[i]);
             i++;
         }
-
-        // Neu hang doi khong rong
-        if(queueCount > 0) {
-            PCB current = queue[0]; // Lay tien trinh dau hang doi
-            removeProcess(&queueCount, 0, queue); // Xoa khoi hang doi
-
-            // Gan thoi gian bat dau neu chua co
-            if(current.iStart == -1) {
-                current.iStart = currentTime;
-                current.iResponse = currentTime - current.iArrival;
-            }
-
-            // Thuc thi trong quantum hoac den khi hoan thanh
-            int index = -1;
-            for(int j = 0; j < n; j++) {
-                if(P[j].iPID == current.iPID) {
+        if(index != -1 && remainingBurst[index] > 0) {
+            enqueue(&q, current); // Đưa lại vào hàng đợi nếu chưa hoàn thành
+        }
+        
+        // Xử lý hàng đợi
+        if (!isEmpty(&q)) {
+            current = dequeue(&q);
+            index = -1;
+            for (int j = 0; j < n; j++) {
+                if (P[j].iPID == current.iPID) {
                     index = j;
                     break;
                 }
             }
 
-            int execTime = (remainingBurst[index] <= quantum) ? remainingBurst[index] : quantum;
-            remainingBurst[index] -= execTime; // Giam thoi gian con lai
-            currentTime += execTime; // Cap nhat thoi gian
+            // Gán thời gian bắt đầu và phản hồi lần đầu
+            if (P[index].iStart == -1) {
+                P[index].iStart = currentTime;
+                P[index].iResponse = currentTime - P[index].iArrival;
+            }
 
-            // Luu doan thuc thi vao executed
+            // Thực thi trong quantum hoặc đến khi hoàn thành
+            int execTime = (remainingBurst[index] <= quantum) ? remainingBurst[index] : quantum;
+            remainingBurst[index] -= execTime;
+            currentTime += execTime;
+
+            // Cập nhật tiến trình đã thực thi
             current.iFinish = currentTime;
             executed[executedCount] = current;
             executedCount++;
 
-            // Neu tien trinh hoan thanh
-            if(remainingBurst[index] == 0) {
+            // Nếu chưa hoàn thành, thêm lại vào cuối hàng đợi
+            if (remainingBurst[index] == 0) {
+                // Nếu hoàn thành
                 P[index].iFinish = currentTime;
-                P[index].iResponse = current.iResponse;
-                P[index].iStart = current.iStart;
                 completed++;
-            } else {
-                // Dua lai vao hang doi neu chua hoan thanh
-                queue[queueCount] = current;
-                queueCount++;
             }
         } else {
-            currentTime++; // Tang thoi gian neu khong co tien trinh san sang
+            currentTime++; // Tăng thời gian nếu không có tiến trình sẵn sàng
         }
     }
 
-    printf("________[Round Robin Scheduling:]________\n"); // Tieu de RR
-    exportGanttChart(executedCount, executed); // In bieu do Gantt
-    calculateAWT(n, P); // Tinh thoi gian cho trung binh
-    calculateATaT(n, P); // Tinh thoi gian quay vong trung binh
-    
+    printf("________[Round Robin Scheduling:]________\n");
+    exportGanttChart(executedCount, executed);
+    calculateAWT(n, P, currentTime);
+    calculateATaT(n, P);
+
     return 0;
 }
